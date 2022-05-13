@@ -9,10 +9,12 @@ import OpcXmlDaClient.Base.Prelude hiding (Read)
 import qualified OpcXmlDaClient.Base.Vector as VectorUtil
 import qualified OpcXmlDaClient.Protocol.Namespaces as Ns
 import OpcXmlDaClient.Protocol.Types
-import qualified OpcXmlDaClient.XmlSchemaValues.Attoparsec as XmlSchemaValuesAttoparsec
 import OpcXmlDaClient.XmlSchemaValues.Types
 import qualified Text.XML as Xml
 import XmlParser
+import OpcXmlDaClient.XmlSchemaValues.ContentParser (XmlContentParser(..))
+
+-- * The content parser monad
 
 -- * Responses
 
@@ -174,7 +176,7 @@ subscribeReplyItemList :: Element SubscribeReplyItemList
 subscribeReplyItemList =
   join $
     attributesByName $ do
-      _revisedSamplingRate <- optional $ byName Nothing "RevisedSamplingRate" $ attoparsedContent Atto.decimal
+      _revisedSamplingRate <- optional $ byName Nothing "RevisedSamplingRate" $ parsedContent @(Atto.Parser) decimal
       return $ do
         _items <- childrenByName $ VectorUtil.many $ byName (Just Ns.opc) "Items" $ subscribeItemValue
         return (SubscribeReplyItemList _items _revisedSamplingRate)
@@ -183,7 +185,7 @@ subscribeItemValue :: Element SubscribeItemValue
 subscribeItemValue =
   join $
     attributesByName $ do
-      _revisedSamplingRate <- optional $ byName Nothing "RevisedSamplingRate" $ attoparsedContent Atto.decimal
+      _revisedSamplingRate <- optional $ byName Nothing "RevisedSamplingRate" $ parsedContent @(Atto.Parser) decimal
       return $ do
         _itemValue <- childrenByName $ byName (Just Ns.opc) "ItemValue" $ itemValue
         return (SubscribeItemValue _itemValue _revisedSamplingRate)
@@ -419,64 +421,64 @@ stringContent = textContent
 -- |
 -- A binary logic value (true or false).
 booleanContent :: Content Bool
-booleanContent = attoparsedContent $ AttoparsecData.lenientParser
+booleanContent = parsedContent @(Atto.Parser) $ parseXmlBool
 
 -- |
 -- An IEEE single-precision 32-bit floating point value.
 floatContent :: Content Float
-floatContent = attoparsedContent $ fmap realToFrac $ AttoparsecData.lenientParser @Double
+floatContent = parsedContent @(Atto.Parser) $ fmap realToFrac $ parseXmlDouble
 
 -- |
 -- An IEEE double-precision 64-bit floating point value.
 doubleContent :: Content Double
-doubleContent = attoparsedContent $ AttoparsecData.lenientParser
+doubleContent = parsedContent @(Atto.Parser) $ parseXmlDouble
 
 -- |
 -- A fixed-point decimal value with arbitrary precision.
 -- Application development environments impose practical limitations on the precision supported by this type. XML-DA compliant applications must support at least the range supported by the VT_CY type.
 decimalContent :: Content Scientific
-decimalContent = attoparsedContent $ AttoparsecData.lenientParser
+decimalContent = parsedContent @(Atto.Parser) $ parseXmlScientific
 
 -- |
 -- A 64-bit signed integer value.
 longContent :: Content Int64
-longContent = attoparsedContent $ AttoparsecData.lenientParser
+longContent = parsedContent @(Atto.Parser) $ parseXmlInt64
 
 -- |
 -- A 32-bit signed integer value.
 intContent :: Content Int32
-intContent = attoparsedContent $ AttoparsecData.lenientParser
+intContent = parsedContent @(Atto.Parser) $ parseXmlInt32
 
 -- |
 -- A 16-bit signed integer value.
 shortContent :: Content Int16
-shortContent = attoparsedContent $ AttoparsecData.lenientParser
+shortContent = parsedContent @(Atto.Parser) $ parseXmlInt16
 
 -- |
 -- An 8-bit signed integer value.
 -- Note this differs from the definition of ‘byte’ used in most programming laguages.
 byteContent :: Content Int8
-byteContent = attoparsedContent $ AttoparsecData.lenientParser
+byteContent = parsedContent @(Atto.Parser) $ parseXmlInt8
 
 -- |
 -- A 64-bit unsigned integer value.
 unsignedLongContent :: Content Word64
-unsignedLongContent = attoparsedContent $ AttoparsecData.lenientParser
+unsignedLongContent = parsedContent @(Atto.Parser) $ parseXmlWord64
 
 -- |
 -- A 32-bit unsigned integer value.
 unsignedIntContent :: Content Word32
-unsignedIntContent = attoparsedContent $ AttoparsecData.lenientParser
+unsignedIntContent = parsedContent @(Atto.Parser) $ parseXmlWord32
 
 -- |
 -- A 16-bit unsigned integer value.
 unsignedShortContent :: Content Word16
-unsignedShortContent = attoparsedContent $ AttoparsecData.lenientParser
+unsignedShortContent = parsedContent @(Atto.Parser) $ parseXmlWord16
 
 -- |
 -- An 8-bit unsigned integer value.
 unsignedByteContent :: Content Word8
-unsignedByteContent = attoparsedContent $ AttoparsecData.lenientParser
+unsignedByteContent = parsedContent @(Atto.Parser) $ parseXmlWord8
 
 -- |
 -- A sequence of 8-bit values represented in XML with Base-64 Encoding.
@@ -486,22 +488,22 @@ base64BinaryContent = refinedContent $ Base64.decodeBase64 . TextEncoding.encode
 -- |
 -- A specific instance in time.
 dateTimeContent :: Content UTCTime
-dateTimeContent = attoparsedContent XmlSchemaValuesAttoparsec.dateTime
+dateTimeContent = parsedContent @(Atto.Parser) parseXmlUTCTime
 
 -- |
 -- An instant of time that recurs every day.
 timeContent :: Content Time
-timeContent = attoparsedContent XmlSchemaValuesAttoparsec.time
+timeContent = parsedContent @(Atto.Parser) parseXmlTime
 
 -- |
 -- A Gregorian calendar date.
 dateContent :: Content Date
-dateContent = attoparsedContent XmlSchemaValuesAttoparsec.date
+dateContent = parsedContent @(Atto.Parser) parseXmlDate
 
 -- |
 -- A duration of time as specified by Gregorian year, month, day, hour, minute, and second components.
 durationContent :: Content Duration
-durationContent = attoparsedContent XmlSchemaValuesAttoparsec.duration
+durationContent = parsedContent @(Atto.Parser) parseXmlDuration
 
 -- |
 -- An XML qualified name comprising of a name and a namespace.
